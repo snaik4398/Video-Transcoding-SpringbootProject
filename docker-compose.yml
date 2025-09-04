@@ -1,0 +1,227 @@
+version: '3.8'
+
+services:
+  # Database Services
+  postgres:
+    image: postgres:15-alpine
+    container_name: transcode-postgres
+    environment:
+      POSTGRES_DB: transcode_db
+      POSTGRES_USER: transcode_user
+      POSTGRES_PASSWORD: secure_password_123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U transcode_user -d transcode_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - transcode-network
+
+  # Caching Service
+  redis:
+    image: redis:7-alpine
+    container_name: transcode-redis
+    command: redis-server --requirepass redis_password_123
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - transcode-network
+
+  # Message Queue
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: transcode-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - transcode-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: transcode-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - transcode-network
+
+  # File Storage
+  minio:
+    image: minio/minio:latest
+    container_name: transcode-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - transcode-network
+
+  # Microservices
+  auth-service:
+    build: ./auth-service
+    container_name: transcode-auth-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: transcode_db
+      POSTGRES_USER: transcode_user
+      POSTGRES_PASSWORD: secure_password_123
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis_password_123
+      JWT_SECRET: your-super-secret-jwt-key-change-this-in-production
+      JWT_EXPIRATION: 86400000
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./logs:/var/log
+    networks:
+      - transcode-network
+
+  file-service:
+    build: ./file-service
+    container_name: transcode-file-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: transcode_db
+      POSTGRES_USER: transcode_user
+      POSTGRES_PASSWORD: secure_password_123
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      MINIO_BUCKET_NAME: video-files
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./logs:/var/log
+      - ./temp:/tmp/uploads
+    networks:
+      - transcode-network
+
+  transcoding-service:
+    build: ./transcoding-service
+    container_name: transcode-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: transcode_db
+      POSTGRES_USER: transcode_user
+      POSTGRES_PASSWORD: secure_password_123
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis_password_123
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      MINIO_BUCKET_NAME: video-files
+      FFMPEG_PATH: /usr/local/bin/ffmpeg
+      FFPROBE_PATH: /usr/local/bin/ffprobe
+      MAX_CONCURRENT_JOBS: 4
+      TEMP_DIR: /tmp/transcode
+      OUTPUT_DIR: /app/output
+      ENABLE_GPU_ACCELERATION: false
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./logs:/var/log
+      - ./temp:/tmp/transcode
+      - ./output:/app/output
+    networks:
+      - transcode-network
+
+  notification-service:
+    build: ./notification-service
+    container_name: transcode-notification-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: transcode_db
+      POSTGRES_USER: transcode_user
+      POSTGRES_PASSWORD: secure_password_123
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis_password_123
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    ports:
+      - "8084:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./logs:/var/log
+    networks:
+      - transcode-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+
+networks:
+  transcode-network:
+    driver: bridge

@@ -1,0 +1,8 @@
+C:\PERSONAL_PROJECT\video_transcoding_java\auth-service\src\main\java\com\transcodeservice\auth\dto\RegisterRequest.java
+C:\PERSONAL_PROJECT\video_transcoding_java\auth-service\src\main\java\com\transcodeservice\auth\controller\AuthController.java
+C:\PERSONAL_PROJECT\video_transcoding_java\auth-service\src\main\java\com\transcodeservice\auth\dto\LoginRequest.java
+C:\PERSONAL_PROJECT\video_transcoding_java\auth-service\src\main\java\com\transcodeservice\auth\repository\UserRepository.java
+C:\PERSONAL_PROJECT\video_transcoding_java\auth-service\src\main\java\com\transcodeservice\auth\config\SecurityConfig.java
+C:\PERSONAL_PROJECT\video_transcoding_java\auth-service\src\main\java\com\transcodeservice\auth\dto\AuthResponse.java
+C:\PERSONAL_PROJECT\video_transcoding_java\auth-service\src\main\java\com\transcodeservice\auth\AuthServiceApplication.java
+C:\PERSONAL_PROJECT\video_transcoding_java\auth-service\src\main\java\com\transcodeservice\auth\service\AuthService.java
