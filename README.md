@@ -13,8 +13,8 @@ The application consists of four microservices:
 
 ## Technology Stack
 
-- **Java**: 11
-- **Spring Boot**: 3.2.0
+- **Java**: 17
+- **Spring Boot**: 3.5.5
 - **Spring Security**: JWT-based authentication
 - **Spring Data JPA**: PostgreSQL database
 - **Spring Kafka**: Message queuing
@@ -26,7 +26,7 @@ The application consists of four microservices:
 
 ## Prerequisites
 
-- Java 11 or higher
+- Java 17 or higher
 - Maven 3.6+
 - Docker and Docker Compose
 - FFmpeg (for local development)
