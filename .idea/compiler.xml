@@ -15,4 +15,13 @@
       </profile>
     </annotationProcessing>
   </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="auth-service" options="-parameters" />
+      <module name="common" options="-parameters" />
+      <module name="file-service" options="-parameters" />
+      <module name="notification-service" options="-parameters" />
+      <module name="transcoding-service" options="-parameters" />
+    </option>
+  </component>
 </project>

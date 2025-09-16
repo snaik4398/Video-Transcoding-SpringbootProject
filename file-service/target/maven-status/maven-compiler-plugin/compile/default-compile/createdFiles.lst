@@ -1,0 +1,6 @@
+com\transcodeservice\file\controller\FileController.class
+com\transcodeservice\file\config\SecurityConfig.class
+com\transcodeservice\file\config\MinioConfig.class
+com\transcodeservice\file\repository\VideoFileRepository.class
+com\transcodeservice\file\service\FileService.class
+com\transcodeservice\file\FileServiceApplication.class

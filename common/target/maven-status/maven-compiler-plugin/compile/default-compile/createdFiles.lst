@@ -2,6 +2,7 @@ com\transcodeservice\common\dto\TranscodingJobDto$OutputSettingsDto$OutputSettin
 com\transcodeservice\common\entity\TranscodingJob.class
 com\transcodeservice\common\util\JwtUtil.class
 com\transcodeservice\common\entity\VideoFile$VideoFileBuilder.class
+com\transcodeservice\common\exception\exception\HttpClientUtilException.class
 com\transcodeservice\common\entity\User$UserBuilder.class
 com\transcodeservice\common\dto\UserDto$UserDtoBuilder.class
 com\transcodeservice\common\entity\Notification$NotificationStatus.class
@@ -14,7 +15,9 @@ com\transcodeservice\common\dto\UserDto.class
 com\transcodeservice\common\entity\TranscodingJob$TranscodingJobBuilder.class
 com\transcodeservice\common\entity\User.class
 com\transcodeservice\common\entity\VideoFile.class
+com\transcodeservice\common\exception\logging\GenericExceptionVO.class
 com\transcodeservice\common\entity\Notification$NotificationBuilder.class
+com\transcodeservice\common\exception\logging\CustomException.class
 com\transcodeservice\common\dto\TranscodingJobDto$OutputSettingsDto.class
 com\transcodeservice\common\entity\User$UserRole.class
 com\transcodeservice\common\entity\Notification$NotificationType.class

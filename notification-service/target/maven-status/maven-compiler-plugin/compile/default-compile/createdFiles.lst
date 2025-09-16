@@ -1,0 +1,5 @@
+com\transcodeservice\notification\service\NotificationService.class
+com\transcodeservice\notification\repository\NotificationRepository.class
+com\transcodeservice\notification\controller\NotificationController.class
+com\transcodeservice\notification\config\SecurityConfig.class
+com\transcodeservice\notification\NotificationServiceApplication.class

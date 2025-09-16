@@ -1,0 +1,8 @@
+com\transcodeservice\transcoding\service\FFmpegService.class
+com\transcodeservice\transcoding\service\TranscodingService.class
+com\transcodeservice\transcoding\controller\TranscodingController.class
+com\transcodeservice\transcoding\dto\SystemInfo.class
+com\transcodeservice\transcoding\TranscodingServiceApplication.class
+com\transcodeservice\transcoding\dto\SystemInfo$SystemInfoBuilder.class
+com\transcodeservice\transcoding\repository\TranscodingJobRepository.class
+com\transcodeservice\transcoding\config\SecurityConfig.class

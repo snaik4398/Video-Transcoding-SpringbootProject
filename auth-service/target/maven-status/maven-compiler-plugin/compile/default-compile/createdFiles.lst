@@ -1,0 +1,16 @@
+com\transcodeservice\auth\dto\AuthResponse$AuthResponseBuilder.class
+com\transcodeservice\auth\exception\AuthException.class
+com\transcodeservice\auth\exception\AuthExceptionHandler.class
+com\transcodeservice\auth\dto\LoginRequest.class
+com\transcodeservice\auth\service\AuthService.class
+com\transcodeservice\auth\dto\AuthResponse.class
+com\transcodeservice\auth\AuthServiceApplication.class
+com\transcodeservice\auth\controller\AuthController.class
+com\transcodeservice\auth\dto\RegisterRequest.class
+com\transcodeservice\auth\exception\ExceptionResponse.class
+com\transcodeservice\auth\config\SecurityConfig.class
+com\transcodeservice\auth\dto\LoginRequest$LoginRequestBuilder.class
+com\transcodeservice\auth\dto\RegisterRequest$RegisterRequestBuilder.class
+com\transcodeservice\auth\repository\UserRepository.class
+com\transcodeservice\auth\exception\UserNotFoundException.class
+com\transcodeservice\auth\exception\LoginException.class

@@ -1,0 +1,7 @@
+C:\PERSONAL_PROJECT\video_transcoding_java\transcoding-service\src\main\java\com\transcodeservice\transcoding\config\SecurityConfig.java
+C:\PERSONAL_PROJECT\video_transcoding_java\transcoding-service\src\main\java\com\transcodeservice\transcoding\controller\TranscodingController.java
+C:\PERSONAL_PROJECT\video_transcoding_java\transcoding-service\src\main\java\com\transcodeservice\transcoding\dto\SystemInfo.java
+C:\PERSONAL_PROJECT\video_transcoding_java\transcoding-service\src\main\java\com\transcodeservice\transcoding\repository\TranscodingJobRepository.java
+C:\PERSONAL_PROJECT\video_transcoding_java\transcoding-service\src\main\java\com\transcodeservice\transcoding\service\FFmpegService.java
+C:\PERSONAL_PROJECT\video_transcoding_java\transcoding-service\src\main\java\com\transcodeservice\transcoding\service\TranscodingService.java
+C:\PERSONAL_PROJECT\video_transcoding_java\transcoding-service\src\main\java\com\transcodeservice\transcoding\TranscodingServiceApplication.java

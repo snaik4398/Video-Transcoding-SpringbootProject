@@ -1,7 +1,10 @@
-C:\PERSONAL_PROJECT\video_transcoding_java\common\src\main\java\com\transcodeservice\common\entity\TranscodingJob.java
-C:\PERSONAL_PROJECT\video_transcoding_java\common\src\main\java\com\transcodeservice\common\entity\Notification.java
 C:\PERSONAL_PROJECT\video_transcoding_java\common\src\main\java\com\transcodeservice\common\dto\TranscodingJobDto.java
-C:\PERSONAL_PROJECT\video_transcoding_java\common\src\main\java\com\transcodeservice\common\entity\User.java
 C:\PERSONAL_PROJECT\video_transcoding_java\common\src\main\java\com\transcodeservice\common\dto\UserDto.java
-C:\PERSONAL_PROJECT\video_transcoding_java\common\src\main\java\com\transcodeservice\common\util\JwtUtil.java
+C:\PERSONAL_PROJECT\video_transcoding_java\common\src\main\java\com\transcodeservice\common\entity\Notification.java
+C:\PERSONAL_PROJECT\video_transcoding_java\common\src\main\java\com\transcodeservice\common\entity\TranscodingJob.java
+C:\PERSONAL_PROJECT\video_transcoding_java\common\src\main\java\com\transcodeservice\common\entity\User.java
 C:\PERSONAL_PROJECT\video_transcoding_java\common\src\main\java\com\transcodeservice\common\entity\VideoFile.java
+C:\PERSONAL_PROJECT\video_transcoding_java\common\src\main\java\com\transcodeservice\common\exception\exception\HttpClientUtilException.java
+C:\PERSONAL_PROJECT\video_transcoding_java\common\src\main\java\com\transcodeservice\common\exception\logging\CustomException.java
+C:\PERSONAL_PROJECT\video_transcoding_java\common\src\main\java\com\transcodeservice\common\exception\logging\GenericExceptionVO.java
+C:\PERSONAL_PROJECT\video_transcoding_java\common\src\main\java\com\transcodeservice\common\util\JwtUtil.java
