@@ -1,7 +1,13 @@
 @echo off
-echo Building Video Transcoding Service...
+REM Set JAVA_HOME to Java 21 for this build
+set JAVA_HOME=C:\Program Files\Java\jdk-21
+set PATH=%JAVA_HOME%\bin;%PATH%
 
+echo Building Video Transcoding Service...
+echo Using Java: %JAVA_HOME%
+java -version
 echo.
+
 echo Building Common Module...
 cd common
 call mvn clean install -DskipTests

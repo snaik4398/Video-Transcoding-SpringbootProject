@@ -5,18 +5,25 @@
 						http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<parent>
-		<groupId>com.transcodeservice</groupId>
+		<groupId>com.sanjay</groupId>
 		<artifactId>video-transcoding-service</artifactId>
 		<version>1.0.0</version>
 	</parent>
 	<artifactId>notification-service</artifactId>
 	<name>Notification Service</name>
 	<description>Notification service for user alerts and updates</description>
+	
+	<properties>
+		<java.version>21</java.version>
+		<maven.compiler.source>21</maven.compiler.source>
+		<maven.compiler.target>21</maven.compiler.target>
+	</properties>
+	
 	<dependencies>
 		<dependency>
-			<groupId>com.transcodeservice</groupId>
-			<artifactId>common</artifactId>
-			<version>1.0.0</version>
+			<groupId>com.sanjay</groupId>
+			<artifactId>common-jar</artifactId>
+			<version>${common-jar-version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -50,8 +57,32 @@
 	<build>
 		<plugins>
 			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<source>21</source>
+					<target>21</target>
+					<release>21</release>
+					<annotationProcessorPaths>
+						<path>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok-mapstruct-binding</artifactId>
+							<version>${lombok-mapstruct-binding.version}</version>
+						</path>
+						<path>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+							<version>${lombok.version}</version>
+						</path>
+					</annotationProcessorPaths>
+				</configuration>
+			</plugin>
+			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<mainClass>com.sanjay.notification.NotificationServiceApplication</mainClass>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>

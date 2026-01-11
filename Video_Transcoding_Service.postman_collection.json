@@ -1,0 +1,866 @@
+{
+	"info": {
+		"_postman_id": "video-transcoding-service-2024",
+		"name": "Video Transcoding Service",
+		"description": "Complete API collection for Video Transcoding Service microservices architecture. Includes Authentication, Transcoding, File Management, Notification services, and Actuator endpoints.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "sanjay"
+	},
+	"item": [
+		{
+			"name": "Authentication Service (8081)",
+			"item": [
+				{
+					"name": "Register User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.environment.set(\"jwt_token\", jsonData.token);",
+									"    pm.environment.set(\"user_id\", jsonData.userId);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"testuser\",\n    \"email\": \"test@example.com\",\n    \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url_auth}}/api/auth/register",
+							"host": ["{{base_url_auth}}"],
+							"path": ["api", "auth", "register"]
+						},
+						"description": "Register a new user account. Returns JWT token on success."
+					},
+					"response": []
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.environment.set(\"jwt_token\", jsonData.token);",
+									"    pm.environment.set(\"user_id\", jsonData.userId);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"testuser\",\n    \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url_auth}}/api/auth/login",
+							"host": ["{{base_url_auth}}"],
+							"path": ["api", "auth", "login"]
+						},
+						"description": "Login with username and password. Returns JWT token on success."
+					},
+					"response": []
+				},
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url_auth}}/api/auth/health",
+							"host": ["{{base_url_auth}}"],
+							"path": ["api", "auth", "health"]
+						},
+						"description": "Check if authentication service is running"
+					},
+					"response": []
+				},
+				{
+					"name": "Actuator - Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url_auth}}/actuator/health",
+							"host": ["{{base_url_auth}}"],
+							"path": ["actuator", "health"]
+						},
+						"description": "Spring Boot Actuator health endpoint"
+					},
+					"response": []
+				},
+				{
+					"name": "Actuator - Info",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url_auth}}/actuator/info",
+							"host": ["{{base_url_auth}}"],
+							"path": ["actuator", "info"]
+						},
+						"description": "Spring Boot Actuator info endpoint"
+					},
+					"response": []
+				},
+				{
+					"name": "Actuator - Metrics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url_auth}}/actuator/metrics",
+							"host": ["{{base_url_auth}}"],
+							"path": ["actuator", "metrics"]
+						},
+						"description": "Spring Boot Actuator metrics endpoint - lists all available metrics"
+					},
+					"response": []
+				}
+			],
+			"description": "Authentication Service endpoints for user registration, login, and health checks"
+		},
+		{
+			"name": "File Management Service (8083)",
+			"item": [
+				{
+					"name": "Upload File",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "description",
+									"value": "Test video file",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url_file}}/api/files/upload",
+							"host": ["{{base_url_file}}"],
+							"path": ["api", "files", "upload"]
+						},
+						"description": "Upload a video file. Returns file metadata including fileId which is needed for transcoding."
+					},
+					"response": []
+				},
+				{
+					"name": "Get File Info",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.environment.set(\"file_id\", jsonData.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url_file}}/api/files/{{file_id}}",
+							"host": ["{{base_url_file}}"],
+							"path": ["api", "files", "{{file_id}}"]
+						},
+						"description": "Get file information by fileId"
+					},
+					"response": []
+				},
+				{
+					"name": "Download File",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url_file}}/api/files/{{file_id}}/download",
+							"host": ["{{base_url_file}}"],
+							"path": ["api", "files", "{{file_id}}", "download"]
+						},
+						"description": "Download a file by fileId"
+					},
+					"response": []
+				},
+				{
+					"name": "Get User Files",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url_file}}/api/files?page=0&size=10",
+							"host": ["{{base_url_file}}"],
+							"path": ["api", "files"],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								}
+							]
+						},
+						"description": "Get paginated list of user's files"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete File",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url_file}}/api/files/{{file_id}}",
+							"host": ["{{base_url_file}}"],
+							"path": ["api", "files", "{{file_id}}"]
+						},
+						"description": "Delete a file by fileId"
+					},
+					"response": []
+				},
+				{
+					"name": "Update File Description",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "text/plain"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "Updated description for my video file"
+						},
+						"url": {
+							"raw": "{{base_url_file}}/api/files/{{file_id}}/description",
+							"host": ["{{base_url_file}}"],
+							"path": ["api", "files", "{{file_id}}", "description"]
+						},
+						"description": "Update file description"
+					},
+					"response": []
+				},
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url_file}}/api/files/health",
+							"host": ["{{base_url_file}}"],
+							"path": ["api", "files", "health"]
+						},
+						"description": "Check if file service is running"
+					},
+					"response": []
+				},
+				{
+					"name": "Actuator - Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url_file}}/actuator/health",
+							"host": ["{{base_url_file}}"],
+							"path": ["actuator", "health"]
+						},
+						"description": "Spring Boot Actuator health endpoint"
+					},
+					"response": []
+				},
+				{
+					"name": "Actuator - Info",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url_file}}/actuator/info",
+							"host": ["{{base_url_file}}"],
+							"path": ["actuator", "info"]
+						},
+						"description": "Spring Boot Actuator info endpoint"
+					},
+					"response": []
+				},
+				{
+					"name": "Actuator - Metrics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url_file}}/actuator/metrics",
+							"host": ["{{base_url_file}}"],
+							"path": ["actuator", "metrics"]
+						},
+						"description": "Spring Boot Actuator metrics endpoint"
+					},
+					"response": []
+				}
+			],
+			"description": "File Management Service endpoints for file upload, download, and management"
+		},
+		{
+			"name": "Transcoding Service (8082)",
+			"item": [
+				{
+					"name": "Get System Info",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url_transcode}}/api/transcode/system-info",
+							"host": ["{{base_url_transcode}}"],
+							"path": ["api", "transcode", "system-info"]
+						},
+						"description": "Get system information including CPU, GPU, and memory details"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Transcoding Job",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.environment.set(\"job_id\", jsonData.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"inputFileId\": \"{{file_id}}\",\n    \"outputSettings\": {\n        \"videoCodec\": \"libx264\",\n        \"audioCodec\": \"aac\",\n        \"outputFormat\": \"mp4\",\n        \"videoBitrate\": \"2000k\",\n        \"audioBitrate\": \"128k\",\n        \"resolution\": \"1920x1080\",\n        \"frameRate\": 30,\n        \"processingMode\": \"CPU\"\n    },\n    \"priority\": \"NORMAL\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url_transcode}}/api/transcode/jobs",
+							"host": ["{{base_url_transcode}}"],
+							"path": ["api", "transcode", "jobs"]
+						},
+						"description": "Create a new transcoding job. Requires a valid fileId from file service."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Transcoding Job",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url_transcode}}/api/transcode/jobs/{{job_id}}",
+							"host": ["{{base_url_transcode}}"],
+							"path": ["api", "transcode", "jobs", "{{job_id}}"]
+						},
+						"description": "Get transcoding job status by jobId"
+					},
+					"response": []
+				},
+				{
+					"name": "Get User Jobs",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url_transcode}}/api/transcode/jobs?page=0&size=10",
+							"host": ["{{base_url_transcode}}"],
+							"path": ["api", "transcode", "jobs"],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								},
+								{
+									"key": "status",
+									"value": "COMPLETED",
+									"description": "Optional: QUEUED, PROCESSING, COMPLETED, FAILED, CANCELLED",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Get paginated list of user's transcoding jobs. Optional status filter."
+					},
+					"response": []
+				},
+				{
+					"name": "Cancel Transcoding Job",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url_transcode}}/api/transcode/jobs/{{job_id}}",
+							"host": ["{{base_url_transcode}}"],
+							"path": ["api", "transcode", "jobs", "{{job_id}}"]
+						},
+						"description": "Cancel a pending or processing transcoding job"
+					},
+					"response": []
+				},
+				{
+					"name": "Bulk Transcode",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"inputFileIds\": [\"{{file_id}}\"],\n    \"outputSettings\": {\n        \"videoCodec\": \"libx265\",\n        \"audioCodec\": \"aac\",\n        \"outputFormat\": \"mp4\",\n        \"videoBitrate\": \"1500k\",\n        \"audioBitrate\": \"128k\",\n        \"resolution\": \"1280x720\",\n        \"frameRate\": 24,\n        \"processingMode\": \"GPU\"\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url_transcode}}/api/transcode/bulk",
+							"host": ["{{base_url_transcode}}"],
+							"path": ["api", "transcode", "bulk"]
+						},
+						"description": "Bulk transcoding feature (not fully implemented yet)"
+					},
+					"response": []
+				},
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url_transcode}}/api/transcode/health",
+							"host": ["{{base_url_transcode}}"],
+							"path": ["api", "transcode", "health"]
+						},
+						"description": "Check if transcoding service is running"
+					},
+					"response": []
+				},
+				{
+					"name": "Actuator - Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url_transcode}}/actuator/health",
+							"host": ["{{base_url_transcode}}"],
+							"path": ["actuator", "health"]
+						},
+						"description": "Spring Boot Actuator health endpoint"
+					},
+					"response": []
+				},
+				{
+					"name": "Actuator - Info",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url_transcode}}/actuator/info",
+							"host": ["{{base_url_transcode}}"],
+							"path": ["actuator", "info"]
+						},
+						"description": "Spring Boot Actuator info endpoint"
+					},
+					"response": []
+				},
+				{
+					"name": "Actuator - Metrics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url_transcode}}/actuator/metrics",
+							"host": ["{{base_url_transcode}}"],
+							"path": ["actuator", "metrics"]
+						},
+						"description": "Spring Boot Actuator metrics endpoint - lists all available metrics"
+					},
+					"response": []
+				},
+				{
+					"name": "Actuator - Prometheus",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url_transcode}}/actuator/prometheus",
+							"host": ["{{base_url_transcode}}"],
+							"path": ["actuator", "prometheus"]
+						},
+						"description": "Spring Boot Actuator Prometheus metrics endpoint (only available in transcoding service)"
+					},
+					"response": []
+				},
+				{
+					"name": "Actuator - Specific Metric",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url_transcode}}/actuator/metrics/jvm.memory.used",
+							"host": ["{{base_url_transcode}}"],
+							"path": ["actuator", "metrics", "jvm.memory.used"]
+						},
+						"description": "Get specific metric value. Replace 'jvm.memory.used' with any metric name from /actuator/metrics"
+					},
+					"response": []
+				}
+			],
+			"description": "Transcoding Service endpoints for video transcoding operations"
+		},
+		{
+			"name": "Notification Service (8084)",
+			"item": [
+				{
+					"name": "Get User Notifications",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url_notification}}/api/notifications?page=0&size=10",
+							"host": ["{{base_url_notification}}"],
+							"path": ["api", "notifications"],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								},
+								{
+									"key": "status",
+									"value": "UNREAD",
+									"description": "Optional: UNREAD, READ",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Get paginated list of user notifications. Optional status filter."
+					},
+					"response": []
+				},
+				{
+					"name": "Mark Notification as Read",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url_notification}}/api/notifications/{{notification_id}}/read",
+							"host": ["{{base_url_notification}}"],
+							"path": ["api", "notifications", "{{notification_id}}", "read"]
+						},
+						"description": "Mark a specific notification as read"
+					},
+					"response": []
+				},
+				{
+					"name": "Mark All as Read",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url_notification}}/api/notifications/read-all",
+							"host": ["{{base_url_notification}}"],
+							"path": ["api", "notifications", "read-all"]
+						},
+						"description": "Mark all notifications as read for the current user"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Unread Count",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url_notification}}/api/notifications/unread-count",
+							"host": ["{{base_url_notification}}"],
+							"path": ["api", "notifications", "unread-count"]
+						},
+						"description": "Get count of unread notifications"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Notification",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url_notification}}/api/notifications/{{notification_id}}",
+							"host": ["{{base_url_notification}}"],
+							"path": ["api", "notifications", "{{notification_id}}"]
+						},
+						"description": "Delete a notification by notificationId"
+					},
+					"response": []
+				},
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url_notification}}/api/notifications/health",
+							"host": ["{{base_url_notification}}"],
+							"path": ["api", "notifications", "health"]
+						},
+						"description": "Check if notification service is running"
+					},
+					"response": []
+				},
+				{
+					"name": "Actuator - Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url_notification}}/actuator/health",
+							"host": ["{{base_url_notification}}"],
+							"path": ["actuator", "health"]
+						},
+						"description": "Spring Boot Actuator health endpoint"
+					},
+					"response": []
+				},
+				{
+					"name": "Actuator - Info",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url_notification}}/actuator/info",
+							"host": ["{{base_url_notification}}"],
+							"path": ["actuator", "info"]
+						},
+						"description": "Spring Boot Actuator info endpoint"
+					},
+					"response": []
+				},
+				{
+					"name": "Actuator - Metrics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url_notification}}/actuator/metrics",
+							"host": ["{{base_url_notification}}"],
+							"path": ["actuator", "metrics"]
+						},
+						"description": "Spring Boot Actuator metrics endpoint"
+					},
+					"response": []
+				}
+			],
+			"description": "Notification Service endpoints for user notifications"
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Auto-set base URLs if not already set",
+					"if (!pm.environment.get(\"base_url_auth\")) {",
+					"    pm.environment.set(\"base_url_auth\", \"http://localhost:8081\");",
+					"}",
+					"if (!pm.environment.get(\"base_url_transcode\")) {",
+					"    pm.environment.set(\"base_url_transcode\", \"http://localhost:8082\");",
+					"}",
+					"if (!pm.environment.get(\"base_url_file\")) {",
+					"    pm.environment.set(\"base_url_file\", \"http://localhost:8083\");",
+					"}",
+					"if (!pm.environment.get(\"base_url_notification\")) {",
+					"    pm.environment.set(\"base_url_notification\", \"http://localhost:8084\");",
+					"}"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url_auth",
+			"value": "http://localhost:8081",
+			"type": "string"
+		},
+		{
+			"key": "base_url_transcode",
+			"value": "http://localhost:8082",
+			"type": "string"
+		},
+		{
+			"key": "base_url_file",
+			"value": "http://localhost:8083",
+			"type": "string"
+		},
+		{
+			"key": "base_url_notification",
+			"value": "http://localhost:8084",
+			"type": "string"
+		},
+		{
+			"key": "jwt_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "user_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "file_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "job_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "notification_id",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
+

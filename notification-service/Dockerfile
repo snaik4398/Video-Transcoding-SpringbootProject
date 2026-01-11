@@ -1,11 +1,9 @@
-FROM openjdk:11-jre-slim
+FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
 # Install necessary packages
-RUN apt-get update && apt-get install -y \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache curl
 
 # Copy the JAR file
 COPY target/notification-service-1.0.0.jar app.jar

@@ -1,12 +1,11 @@
-FROM openjdk:11-jre-slim
+FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
 # Install FFmpeg and necessary packages
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
     ffmpeg \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+    curl
 
 # Create directories
 RUN mkdir -p /tmp/transcode /app/output

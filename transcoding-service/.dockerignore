@@ -1,0 +1,38 @@
+# Maven
+target/
+!target/*.jar
+pom.xml
+.mvn/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.classpath
+.project
+.settings/
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+README*
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+temp/
+output/
+
+# OS
+.DS_Store
+Thumbs.db
+

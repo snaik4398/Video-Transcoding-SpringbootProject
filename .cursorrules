@@ -1,0 +1,905 @@
+Summary of .cursorrules Created
+
+COMPANY_NAME : Sanjay
+PROJECT_NAME : Sanjay Personal Projects
+PROJECT_DESCRIPTION : Sanjay Personal Projects For Learning and Testing
+Author : Sanjay Naik
+
+**Configuration**: Replace `{COMPANY_NAME}` and `{PROJECT_NAME}` placeholders with your actual values.
+
+1. Project Structure
+Parent-child Maven hierarchy
+Microservice module structure (jar, model-jar, svc)
+Utility libs organization
+2. POM Patterns
+Centralized dependency versions in parent POM
+Standard dependencies for each module type
+Build plugins (Spring Boot 3.3.x, Swagger, MapStruct)
+Java 21 configuration
+3. Controller Pattern
+Interface + Implementation pattern
+Swagger annotations (@ApiOperation, @ApiResponses)
+Standard CRUD endpoint patterns
+4. Service Pattern
+Interface + Implementation pattern
+Logging at start/end of methods
+Exception handling patterns
+5. Repository Pattern
+MongoDB (MongoRepository) patterns with @Query, @Aggregation
+JPA (JpaRepository) patterns with JpaSpecificationExecutor
+6. Exception Pattern
+All exceptions extend CustomException
+Separate *Exception and *NotFoundException classes
+@ControllerAdvice exception handlers
+Error code ranges per microservice
+7. Model Pattern
+MongoDB document models
+JPA/PostgreSQL entity models with JSONB support
+Value Objects (VOs/DTOs)
+8. Liquibase Patterns
+Directory structure with date-based folders
+SQL script format with preconditions
+Changelog YAML format
+Naming conventions
+9. Configuration
+Bootstrap properties patterns
+Environment-specific configurations
+10. Additional Patterns
+Logging standards
+Inter-service REST calls
+Naming conventions
+Common annotations
+DO's and DON'Ts
+
+**Technology Stack**: Java 21 (LTS), Spring Boot 3.3.x, Maven 3.x
+
+The rules file will help ensure consistent code across all microservices and follows industry-standard patterns.
+
+
+
+
+
+
+---
+# {PROJECT_NAME} - Java Backend Development Rules
+
+## Configuration Placeholders
+**IMPORTANT**: Replace the following placeholders with your actual values:
+- `{COMPANY_NAME}` - Your company name (e.g., "company", "acme", "myorg")
+- `{PROJECT_NAME}` - Your project name (e.g., "KDS", "Video Transcoding Service")
+- `{PROJECT_DESCRIPTION}` - Brief description of your project
+
+## Project Overview
+{PROJECT_NAME} is a microservices platform built with Spring Boot 3.3.x (Java 21), using MongoDB and PostgreSQL databases, with Liquibase for database migrations.
+
+### Technology Stack
+- **Java Version**: 21 (LTS)
+- **Spring Boot Version**: 3.3.5 (or latest 3.3.x)
+- **Maven Compiler**: Java 21 (source and target)
+- **Databases**: MongoDB (secondary), PostgreSQL (primary)
+- **Config Server**: Spring Cloud Config
+- **Messaging**: Kafka for async events
+- **PDF Generation**: iText 7.x
+- **Mapping**: MapStruct (recommended), Dozer (legacy support)
+
+---
+
+## 1. PROJECT STRUCTURE
+
+### 1.1 Parent-Child Hierarchy
+```
+java-parent/                          # Root parent POM
+├── pom.xml                           # Master POM with all dependency versions
+├── utility-libs/                     # Shared utility libraries
+│   ├── exception-util-lib/           # CustomException base class
+│   ├── common-util-lib/              # Common utilities
+│   ├── report-lib/                   # PDF report generation
+│   ├── kafka-lib/                    # Kafka utilities
+│   ├── sms-lib/                      # SMS integration
+│   ├── email-lib/                    # Email integration
+│   ├── whatsapp-lib/                 # WhatsApp integration
+│   └── ...
+├── common-ms/                        # Common shared modules
+│   ├── common-jar/                   # Common VOs and utilities
+│   └── patient-case-common-model-jar/
+└── {service-name}-ms/                # Microservices
+    ├── pom.xml                       # Service parent POM
+    ├── {service-name}-jar/           # Business logic, VOs, Exceptions
+    ├── {service-name}-model-jar/     # Database models (optional)
+    └── {service-name}-svc/           # REST API, Service, Repository
+```
+
+### 1.2 Microservice Module Structure
+Each microservice follows this structure:
+```
+{service-name}-ms/
+├── pom.xml                           # Parent POM for the MS
+├── {service-name}-jar/               # Shared library JAR
+│   ├── pom.xml
+│   └── src/main/java/com/{COMPANY_NAME}/{service}/
+│       ├── exception/                # Custom exceptions
+│       └── vo/                       # Value Objects (DTOs)
+├── {service-name}-model-jar/         # Database models (optional)
+│   ├── pom.xml
+│   └── src/main/java/com/{COMPANY_NAME}/{service}/model/
+└── {service-name}-svc/               # Main service implementation
+    ├── pom.xml
+    └── src/main/
+        ├── java/com/{COMPANY_NAME}/{service}/
+        │   ├── {ServiceName}Application.java
+        │   ├── controller/           # REST controllers
+        │   ├── service/              # Business logic
+        │   ├── repository/           # Data access
+        │   ├── exception/            # Exception handlers
+        │   ├── util/                 # Utilities, mappers
+        │   └── kafka/utils/          # Kafka listeners (if needed)
+        └── resources/
+            ├── bootstrap.properties  # Config server settings
+            ├── bootstrap-{env}.properties
+            ├── logback-spring.xml
+            └── db/                   # Liquibase (if using PostgreSQL)
+```
+
+---
+
+## 2. POM FILE PATTERNS
+
+### 2.1 Parent POM (java-parent/pom.xml)
+- All dependency versions are centralized in `<properties>`
+- Use version properties like `${spring-boot-version}`, `${lombok-version}`, `${java.version}`
+- All internal library versions follow pattern: `${service-name-jar-version}`
+- Example: `${patient-jar-version}`, `${cdr-jar-version}`
+- **Recommended versions for Java 21**:
+  ```xml
+  <properties>
+      <java.version>21</java.version>
+      <maven.compiler.source>21</maven.compiler.source>
+      <maven.compiler.target>21</maven.compiler.target>
+      <spring-boot.version>3.3.5</spring-boot.version>
+      <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
+      <lombok.version>1.18.30</lombok.version>
+      <mapstruct.version>1.5.5.Final</mapstruct.version>
+  </properties>
+  ```
+
+### 2.2 Service POM Dependencies
+```xml
+<!-- Always include for service JARs -->
+<dependency>
+    <groupId>com.{COMPANY_NAME}.{service}</groupId>
+    <artifactId>{service}-jar</artifactId>
+    <version>${{service}-jar-version}</version>
+</dependency>
+
+<!-- Auth is typically required -->
+<dependency>
+    <groupId>com.{COMPANY_NAME}.auth</groupId>
+    <artifactId>auth-jar</artifactId>
+    <version>${auth-jar-version}</version>
+</dependency>
+
+<!-- Common utilities -->
+<dependency>
+    <groupId>com.{COMPANY_NAME}.common.util</groupId>
+    <artifactId>common-util-lib</artifactId>
+    <version>${common-util-lib-version}</version>
+</dependency>
+```
+
+### 2.3 Build Plugins (in -svc modules)
+```xml
+<properties>
+    <java.version>21</java.version>
+    <maven.compiler.source>21</maven.compiler.source>
+    <maven.compiler.target>21</maven.compiler.target>
+    <spring-boot.version>3.3.5</spring-boot.version>
+</properties>
+
+<build>
+    <plugins>
+        <!-- Maven Compiler Plugin - Java 21 -->
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <version>3.11.0</version>
+            <configuration>
+                <source>21</source>
+                <target>21</target>
+                <release>21</release>
+                <annotationProcessorPaths>
+                    <path>
+                        <groupId>org.projectlombok</groupId>
+                        <artifactId>lombok-mapstruct-binding</artifactId>
+                        <version>${lombok-mapstruct-binding-version}</version>
+                    </path>
+                    <path>
+                        <groupId>org.mapstruct</groupId>
+                        <artifactId>mapstruct-processor</artifactId>
+                        <version>${mapstruct-version}</version>
+                    </path>
+                    <path>
+                        <groupId>org.projectlombok</groupId>
+                        <artifactId>lombok</artifactId>
+                        <version>${lombok-version}</version>
+                    </path>
+                </annotationProcessorPaths>
+            </configuration>
+        </plugin>
+        
+        <!-- Spring Boot -->
+        <plugin>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
+            <version>${spring-boot.version}</version>
+            <configuration>
+                <mainClass>com.{COMPANY_NAME}.{service}.{ServiceName}Application</mainClass>
+            </configuration>
+        </plugin>
+        
+        <!-- Swagger generation -->
+        <plugin>
+            <groupId>com.github.kongchen</groupId>
+            <artifactId>swagger-maven-plugin</artifactId>
+            <version>${swagger-maven-plugin-version}</version>
+        </plugin>
+    </plugins>
+</build>
+```
+
+---
+
+## 3. CONTROLLER PATTERN
+
+### 3.1 Controller Interface (in controller/ folder)
+```java
+package com.{COMPANY_NAME}.{service}.controller;
+
+/**
+ * Interface defining REST endpoints for {Entity}.
+ */
+public interface {Entity}Controller {
+    
+    ResponseEntity<{Entity}VO> get{Entity}ById(String id) throws {Entity}NotFoundException;
+    
+    ResponseEntity<Page<{Entity}VO>> getAll{Entity}s(Pageable pageable);
+    
+    ResponseEntity<{Entity}VO> create{Entity}({Entity}VO vo) throws {Entity}Exception;
+    
+    ResponseEntity<{Entity}VO> update{Entity}({Entity}VO vo) 
+        throws {Entity}NotFoundException, {Entity}Exception;
+    
+    ResponseEntity<Void> delete{Entity}(String id) throws {Entity}NotFoundException;
+}
+```
+
+### 3.2 Controller Implementation
+```java
+package com.{COMPANY_NAME}.{service}.controller;
+
+@RestController
+@Api(value = "{Entity} Service APIs")
+@RefreshScope
+public class {Entity}ControllerImpl implements {Entity}Controller {
+
+    @Autowired
+    private {Entity}Service {entity}Service;
+
+    @ApiOperation(value = "Get {Entity} by ID", response = {Entity}VO.class)
+    @ApiResponses(value = {
+        @ApiResponse(code = 200, message = "Successfully retrieved"),
+        @ApiResponse(code = {errorCode}, message = "{Entity} not found")
+    })
+    @GetMapping(value = "/{id}")
+    @Override
+    public ResponseEntity<{Entity}VO> get{Entity}ById(
+            @PathVariable("id") String id) throws {Entity}NotFoundException {
+        return new ResponseEntity<>({entity}Service.get{Entity}ById(id), HttpStatus.OK);
+    }
+
+    @ApiOperation(value = "Create new {Entity}", response = {Entity}VO.class)
+    @PostMapping(value = "/")
+    @Override
+    public ResponseEntity<{Entity}VO> create{Entity}(
+            @RequestBody @Valid {Entity}VO vo) throws {Entity}Exception {
+        return new ResponseEntity<>({entity}Service.create{Entity}(vo), HttpStatus.CREATED);
+    }
+}
+```
+
+### 3.3 API Annotations
+- Always use `@ApiOperation`, `@ApiResponses`, `@ApiResponse`
+- Use `@Valid` for request body validation
+- Use `@PathVariable` with explicit name: `@PathVariable("id")`
+- Use `@RequestParam` with defaults: `@RequestParam(value = "param", required = false, defaultValue = "value")`
+
+---
+
+## 4. SERVICE PATTERN
+
+### 4.1 Service Interface
+```java
+package com.{COMPANY_NAME}.{service}.service;
+
+/**
+ * Business logic interface for {Entity}.
+ */
+public interface {Entity}Service {
+    
+    {Entity}VO get{Entity}ById(String id) throws {Entity}NotFoundException;
+    
+    Page<{Entity}VO> getAll{Entity}s(Pageable pageable);
+    
+    {Entity}VO create{Entity}({Entity}VO vo) throws {Entity}Exception;
+    
+    {Entity}VO update{Entity}({Entity}VO vo) 
+        throws {Entity}NotFoundException, {Entity}Exception;
+}
+```
+
+### 4.2 Service Implementation
+```java
+package com.{COMPANY_NAME}.{service}.service;
+
+@Service
+@Slf4j
+@RefreshScope
+public class {Entity}ServiceImpl implements {Entity}Service {
+
+    @Autowired
+    private {Entity}Repository {entity}Repository;
+    
+    @Autowired
+    private {Entity}Mapper {entity}Mapper;
+
+    @Override
+    public {Entity}VO get{Entity}ById(String id) throws {Entity}NotFoundException {
+        log.info("{Entity}ServiceImpl::get{Entity}ById: Start - id: {}", id);
+        
+        Optional<{Entity}Model> optional = {entity}Repository.findById(id);
+        if (optional.isEmpty()) {
+            log.error("{Entity}ServiceImpl::get{Entity}ById: {Entity} not found for id: {}", id);
+            throw new {Entity}NotFoundException({errorCode}L, id);
+        }
+        
+        {Entity}VO result = {entity}Mapper.toVO(optional.get());
+        log.info("{Entity}ServiceImpl::get{Entity}ById: End - Successfully retrieved");
+        return result;
+    }
+
+    @Override
+    public {Entity}VO create{Entity}({Entity}VO vo) throws {Entity}Exception {
+        try {
+            log.info("{Entity}ServiceImpl::create{Entity}: Start");
+            
+            {Entity}Model model = {entity}Mapper.toModel(vo);
+            model.setCreatedOn(Instant.now());
+            model.setLastModifiedOn(Instant.now());
+            
+            {Entity}Model saved = {entity}Repository.save(model);
+            
+            log.info("{Entity}ServiceImpl::create{Entity}: End - Created successfully");
+            return {entity}Mapper.toVO(saved);
+        } catch (Exception exception) {
+            log.error("{Entity}ServiceImpl::create{Entity}: Error - ", exception);
+            throw new {Entity}Exception({errorCode}L, "Error creating {Entity}");
+        }
+    }
+}
+```
+
+---
+
+## 5. REPOSITORY PATTERN
+
+### 5.1 MongoDB Repository (extends MongoRepository)
+```java
+package com.{COMPANY_NAME}.{service}.repository;
+
+@Repository
+public interface {Entity}Repository extends MongoRepository<{Entity}Model, String> {
+
+    @Query(value = "{field: ?0}", fields = "{largeField: 0}")
+    Optional<{Entity}Model> findByField(String field);
+    
+    @Query(value = "{isActive: ?0}")
+    Page<{Entity}Model> findByIsActive(Boolean status, Pageable pageable);
+    
+    @Meta(allowDiskUse = true)
+    @Aggregation(pipeline = {
+        "{ $match: {field: {$regex: ?0, $options: 'i'}}}",
+        "{ $project: { 'largeField': 0 } }"
+    })
+    List<{Entity}Model> aggregationSearch(String searchStr, Pageable pageable);
+}
+```
+
+### 5.2 JPA Repository (extends JpaRepository)
+```java
+package com.{COMPANY_NAME}.{service}.repository;
+
+@Repository
+public interface {Entity}Repository extends JpaRepository<{Entity}Model, String>, 
+        JpaSpecificationExecutor<{Entity}Model> {
+    
+    Optional<{Entity}Model> findByFieldAndStatus(String field, Status status);
+    
+    Page<{Entity}Model> findByCreatedOnBetween(Instant start, Instant end, Pageable pageable);
+}
+```
+
+---
+
+## 6. EXCEPTION PATTERN
+
+### 6.1 Base Exception (all exceptions extend CustomException)
+```java
+package com.{COMPANY_NAME}.{service}.exception;
+
+import com.{COMPANY_NAME}.logging.CustomException;
+import lombok.Getter;
+
+@Getter
+public class {Entity}Exception extends CustomException {
+    private static final long serialVersionUID = 1L;
+    private final long errorCode;
+    private final String[] params;
+
+    public {Entity}Exception(long errorCode, String errorMsg, String... params) {
+        super(errorMsg);
+        this.errorCode = errorCode;
+        this.params = params;
+    }
+
+    public {Entity}Exception(long errorCode, Exception exception, String... params) {
+        super(exception);
+        this.errorCode = errorCode;
+        this.params = params;
+    }
+}
+```
+
+### 6.2 NotFoundException Pattern
+```java
+@Getter
+public class {Entity}NotFoundException extends CustomException {
+    private static final long serialVersionUID = 1L;
+    private final long errorCode;
+    private final String[] params;
+
+    public {Entity}NotFoundException(long errorCode, String... params) {
+        super("{Entity} not found");
+        this.errorCode = errorCode;
+        this.params = params;
+    }
+}
+```
+
+### 6.3 Exception Handler (in -svc module)
+```java
+package com.{COMPANY_NAME}.{service}.exception;
+
+@ControllerAdvice
+public class {Service}ExceptionHandler extends ResponseEntityExceptionHandler {
+
+    @ExceptionHandler({Entity}NotFoundException.class)
+    public ResponseEntity<GenericExceptionVO> handle{Entity}NotFoundException(
+            {Entity}NotFoundException ex, WebRequest request) {
+        String errorMsg = ErrorUtils.getErrorString(ex);
+        return new ResponseEntity<>(
+            new GenericExceptionVO(ex.getErrorCode(), errorMsg), 
+            HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler({Entity}Exception.class)
+    public ResponseEntity<GenericExceptionVO> handle{Entity}Exception(
+            {Entity}Exception ex, WebRequest request) {
+        String errorMsg = ErrorUtils.getErrorString(ex);
+        return new ResponseEntity<>(
+            new GenericExceptionVO(ex.getErrorCode(), errorMsg), 
+            HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+    
+    @Override
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(
+            MethodArgumentNotValidException ex, HttpHeaders headers, 
+            HttpStatus status, WebRequest request) {
+        String errorMessage = ex.getFieldError() != null 
+            ? ex.getFieldError().getDefaultMessage() 
+            : "Validation error";
+        return new ResponseEntity<>(
+            CommonUtils.GetGenericExceptionForValidation(80000, errorMessage),
+            HttpStatus.BAD_REQUEST);
+    }
+}
+```
+
+
+---
+
+## 7. MODEL PATTERN
+
+### 7.1 MongoDB Model
+```java
+package com.{COMPANY_NAME}.{service}.model;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@Document(collection = "{entity}")
+public class {Entity}Model {
+    
+    @Id
+    private String {entity}Id;
+    
+    private String field;
+    private Boolean isActive;
+    private Instant createdOn;
+    private String createdBy;
+    private Instant lastModifiedOn;
+    private String lastModifiedBy;
+}
+```
+
+### 7.2 JPA/PostgreSQL Model
+```java
+package com.{COMPANY_NAME}.{service}.model;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@Entity
+@Table(name = "{entity}", schema = "public")
+@TypeDef(name = "jsonb", typeClass = JsonBinaryType.class)
+public class {Entity}Model implements Serializable {
+    
+    private static final long serialVersionUID = 1L;
+    
+    @Id
+    @Column(name = "{entity}_id")
+    private String {entity}Id;
+    
+    @Column(name = "field_name")
+    private String fieldName;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", columnDefinition = "{entity}_status")
+    @Type(type = "pgenum")
+    private Status status;
+    
+    @Type(type = "jsonb")
+    @Column(name = "extension", columnDefinition = "jsonb")
+    private Map<String, Object> extension;
+    
+    @Column(name = "created_on")
+    private Instant createdOn;
+    
+    @Column(name = "created_by")
+    private String createdBy;
+    
+    @Column(name = "last_modified_on")
+    private Instant lastModifiedOn;
+    
+    @Column(name = "last_modified_by")
+    private String lastModifiedBy;
+}
+```
+
+### 7.3 Value Object (VO)
+```java
+package com.{COMPANY_NAME}.{service}.vo;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+public class {Entity} {
+    
+    private String {entity}Id;
+    
+    @NotBlank(message = "Field is required")
+    private String field;
+    
+    private Boolean isActive;
+    private Instant createdOn;
+    private String createdBy;
+    private Instant lastModifiedOn;
+    private String lastModifiedBy;
+    
+    // For nested objects, use specific VOs
+    private List<RelatedVO> relatedItems;
+    
+    // For flexible data, use Map
+    private Map<String, Object> extension;
+}
+```
+
+---
+
+## 8. LIQUIBASE PATTERNS
+
+### 8.1 Directory Structure
+```
+src/main/resources/db/
+├── changelog.yaml                    # Main changelog
+├── prod-changelog.yaml               # Production-specific
+├── sql-scripts/                      # General scripts
+│   └── YYYY-MM-DD/                   # Date-based folders
+│       ├── 00-{description}.sql
+│       ├── 01-{description}.sql
+│       └── ...
+└── env-specific-sql-scripts/
+    ├── prod/YYYY-MM-DD/
+    └── others/YYYY-MM-DD/
+```
+
+### 8.2 changelog.yaml
+```yaml
+databaseChangeLog:
+- includeAll:
+    path: classpath:db/sql-scripts
+- includeAll:
+    path: classpath:db/env-specific-sql-scripts/others
+```
+
+### 8.3 SQL Script Format
+```sql
+--liquibase formatted sql
+
+--changeset {author}:{YYYY-MM-DD}-{description} failOnError:false
+--preconditions onFail="MARK_RAN" onFailMessage="Table/Type already exists"
+--precondition-sql-check expectedResult:0 SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '{table_name}'
+--comment: Description of what this changeset does
+
+-- ENUM TYPE CREATION
+CREATE TYPE public.{entity}_status AS ENUM ('ACTIVE', 'INACTIVE', 'DELETED');
+COMMENT ON TYPE public.{entity}_status IS 'Status enum for {entity} table';
+
+-- TABLE CREATION
+CREATE TABLE IF NOT EXISTS public.{entity} (
+    {entity}_id TEXT COLLATE pg_catalog."default" PRIMARY KEY,
+    field_name TEXT COLLATE pg_catalog."default",
+    status {entity}_status,
+    extension JSONB,
+    deleted BOOLEAN DEFAULT false,
+    created_on TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_by CHARACTER VARYING(50) COLLATE pg_catalog."default",
+    last_modified_on TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_modified_by CHARACTER VARYING(50) COLLATE pg_catalog."default"
+);
+
+COMMENT ON TABLE public.{entity} IS 'Description of {entity} table';
+
+-- INDEX CREATION
+--changeset {author}:{YYYY-MM-DD}-{entity}-indexes failOnError:false
+CREATE INDEX IF NOT EXISTS idx_{entity}_field ON public.{entity}(field_name);
+CREATE INDEX IF NOT EXISTS idx_{entity}_status ON public.{entity}(status);
+
+-- COLUMN ALTER
+--changeset {author}:{YYYY-MM-DD}-alter-{entity}-{column} failOnError:false
+ALTER TABLE public.{entity} ADD COLUMN IF NOT EXISTS new_column TEXT;
+```
+
+### 8.4 Naming Conventions
+- File prefix: `00-`, `01-`, `02-` for execution order
+- Changeset ID: `{author}:{YYYY-MM-DD}-{description}`
+- Always use `failOnError:false` with preconditions
+- Use `MARK_RAN` for idempotent scripts
+
+---
+
+## 9. CONFIGURATION PATTERNS
+
+### 9.1 bootstrap.properties
+```properties
+spring.profiles.active=local
+spring.application.name={service-name}-svc
+spring.cloud.config.uri=http://localhost:8888
+spring.cloud.config.name={service-name}-svc
+```
+
+### 9.2 Environment-specific bootstrap-{env}.properties
+```properties
+spring.profiles.active={env}
+spring.cloud.config.uri=${CONFIG_SERVER_URL:http://config-server:8888}
+spring.cloud.config.name={service-name}-svc
+```
+
+---
+
+## 10. LOGGING PATTERNS
+
+### 10.1 Standard Log Format
+```java
+log.info("{ClassName}::{methodName}: Start - param: {}", param);
+log.info("{ClassName}::{methodName}: End - Successfully completed");
+log.error("{ClassName}::{methodName}: Error - ", exception);
+log.debug("{ClassName}::{methodName}: Debug info - {}", data);
+```
+
+### 10.2 Use @Slf4j from Lombok
+```java
+@Slf4j
+@Service
+public class MyServiceImpl implements MyService {
+    // log is automatically available
+}
+```
+
+---
+
+## 11. REST CALL PATTERNS (Inter-service communication)
+
+### 11.1 RestUtils Class
+```java
+@Component
+@Slf4j
+public class RestUtils {
+
+    @Autowired
+    private RestTemplate restTemplate;
+    
+    @Value("${other.service.url}")
+    private String otherServiceUrl;
+    
+    @Autowired
+    private HttpServletRequest request;
+
+    public ResponseType callOtherService(RequestType requestBody) throws ServiceException {
+        try {
+            log.info("RestUtils::callOtherService: Start");
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            
+            // Forward Authorization header
+            try {
+                String authorization = request.getHeader("Authorization");
+                if (StringUtils.isNotBlank(authorization)) {
+                    headers.add("Authorization", authorization);
+                }
+            } catch (Exception e) {
+                log.debug("RestUtils::callOtherService: No auth header");
+            }
+            
+            // Accept both JSON (for errors) and expected type
+            List<MediaType> acceptTypes = new ArrayList<>();
+            acceptTypes.add(MediaType.APPLICATION_JSON);
+            headers.setAccept(acceptTypes);
+            
+            HttpEntity<RequestType> entity = new HttpEntity<>(requestBody, headers);
+            ResponseEntity<ResponseType> response = restTemplate.exchange(
+                otherServiceUrl + "/endpoint",
+                HttpMethod.POST,
+                entity,
+                ResponseType.class
+            );
+            
+            return response.getBody();
+        } catch (HttpServerErrorException e) {
+            log.error("RestUtils::callOtherService: Server error - {}", 
+                e.getResponseBodyAsString());
+            // Parse error response
+            ObjectMapper mapper = new ObjectMapper();
+            GenericExceptionVO error = mapper.readValue(
+                e.getResponseBodyAsString(), GenericExceptionVO.class);
+            throw new ServiceException(error.getErrorCode(), error.getException());
+        } catch (Exception e) {
+            log.error("RestUtils::callOtherService: Error - ", e);
+            throw new ServiceException(10001, "Error calling service");
+        }
+    }
+}
+```
+
+---
+
+## 12. COMMON ANNOTATIONS
+
+### 12.1 Class Level
+- `@Service` - Service implementations
+- `@Repository` - Repository interfaces
+- `@RestController` - REST controllers
+- `@ControllerAdvice` - Exception handlers
+- `@Component` - Generic beans
+- `@Slf4j` - Logging
+- `@RefreshScope` - Config refresh support
+- `@Getter`, `@Setter`, `@NoArgsConstructor` - Lombok
+
+### 12.2 Method Level
+- `@Override` - Interface method implementations
+- `@Transactional` - Transaction management
+- `@Scheduled` - Scheduled tasks
+- `@Async` - Async execution
+
+### 12.3 Field Level
+- `@Autowired` - Dependency injection
+- `@Value("${property.name}")` - Property injection
+- `@Valid` - Validation
+- `@NotBlank`, `@NotNull` - Validation constraints
+
+---
+
+## 13. NAMING CONVENTIONS
+
+### 13.1 Classes
+- Controller: `{Entity}Controller`, `{Entity}ControllerImpl`
+- Service: `{Entity}Service`, `{Entity}ServiceImpl`
+- Repository: `{Entity}Repository`
+- Model: `{Entity}Model`
+- VO: `{Entity}` (without suffix) or `{Entity}VO`
+- Exception: `{Entity}Exception`, `{Entity}NotFoundException`
+
+### 13.2 Methods
+- Get: `get{Entity}ById`, `getAll{Entity}s`
+- Create: `create{Entity}`, `save{Entity}`
+- Update: `update{Entity}`, `update{Entity}Parameters`
+- Delete: `delete{Entity}`, `remove{Entity}`
+- Search: `search{Entity}s`, `searchByParameters`
+- Link/Tag: `link{X}To{Y}`, `tag{X}To{Y}`
+
+### 13.3 Variables
+- Use camelCase
+- Repository: `{entity}Repository`
+- Service: `{entity}Service`
+- Model: `{entity}Model`
+- List: `{entity}List` or `{entity}s`
+
+---
+
+## 14. TESTING PATTERNS
+
+### 14.1 Test Dependencies
+```xml
+<dependency>
+    <groupId>junit</groupId>
+    <artifactId>junit</artifactId>
+    <scope>test</scope>
+</dependency>
+<dependency>
+    <groupId>org.powermock</groupId>
+    <artifactId>powermock-module-junit4</artifactId>
+    <scope>test</scope>
+</dependency>
+<dependency>
+    <groupId>org.powermock</groupId>
+    <artifactId>powermock-api-mockito</artifactId>
+    <scope>test</scope>
+</dependency>
+```
+
+---
+
+## 15. IMPORTANT NOTES
+
+1. **Java Version**: Java 21 (LTS) - source and target 21
+2. **Spring Boot**: 3.3.5 (or latest 3.3.x) - compatible with Java 21
+3. **Maven Compiler Plugin**: 3.11.0+ with Java 21 configuration
+4. **Databases**: MongoDB (secondary), PostgreSQL (primary)
+5. **Config Server**: Spring Cloud Config
+6. **Messaging**: Kafka for async events
+7. **PDF Generation**: iText 7.x
+8. **Mapping**: MapStruct (recommended for new code), Dozer (legacy support)
+9. **Company Package**: Replace `{COMPANY_NAME}` with your actual company name in all package declarations
+
+---
+
+## 16. DO's and DON'Ts
+
+### DO's
+- Always extend exceptions from `CustomException`
+- Always use `@Slf4j` for logging
+- Always add `@ApiOperation` and `@ApiResponses` to endpoints
+- Always use pagination for list endpoints (`Pageable`)
+- Always validate input with `@Valid`
+- Always forward Authorization header in inter-service calls
+- Use preconditions in Liquibase scripts for idempotency
+- Log at start and end of service methods
+
+### DON'Ts
+- Don't catch exceptions silently (log and re-throw)
+- Don't return null for PDF/byte[] - throw appropriate exception
+- Don't hardcode URLs - use `@Value` for configuration
+- Don't use `System.out.println` - use logging
+- Don't create entities without audit fields (createdOn, createdBy, etc.)
+- Don't skip error handling in REST calls
+

@@ -5,14 +5,20 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<parent>
-		<groupId>com.transcodeservice</groupId>
+		<groupId>com.sanjay</groupId>
 		<artifactId>video-transcoding-service</artifactId>
 		<version>1.0.0</version>
 	</parent>
 
-	<artifactId>common</artifactId>
+	<artifactId>common-jar</artifactId>
 	<name>Common Module</name>
 	<description>Common shared components, entities, and utilities</description>
+	
+	<properties>
+		<java.version>21</java.version>
+		<maven.compiler.source>21</maven.compiler.source>
+		<maven.compiler.target>21</maven.compiler.target>
+	</properties>
 
 	<dependencies>
 		<!-- Spring Boot Starter Data JPA (includes Jakarta Persistence) -->
@@ -52,4 +58,30 @@
 		</dependency>
 
 	</dependencies>
+	
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<source>21</source>
+					<target>21</target>
+					<release>21</release>
+					<annotationProcessorPaths>
+						<path>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok-mapstruct-binding</artifactId>
+							<version>${lombok-mapstruct-binding.version}</version>
+						</path>
+						<path>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+							<version>${lombok.version}</version>
+						</path>
+					</annotationProcessorPaths>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
 </project>

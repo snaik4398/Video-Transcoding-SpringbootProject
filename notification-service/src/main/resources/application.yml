@@ -35,10 +35,15 @@ spring:
 # Logging
 logging:
   level:
-    com.transcodeservice: ${LOG_LEVEL:INFO}
+    com.sanjay: ${LOG_LEVEL:INFO}
     org.springframework.security: DEBUG
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:Sanjay}
+  expiration: ${JWT_EXPIRATION:86400000}
 
 # Actuator
 management:
