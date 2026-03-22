@@ -26,7 +26,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
-            .cors(cors -> cors.and())
+            .cors(cors -> {})
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
         
         // Option to disable authentication entirely
@@ -43,10 +43,9 @@ public class SecurityConfig {
                 "/api/auth/register", 
                 "/api/auth/login", 
                 "/api/auth/health",
-                "/actuator/**"
-                // Add more public endpoints here:
-                // "/api/auth/public-info",
-                // "/api/auth/api-docs"
+                "/actuator/**",
+                "/swagger-ui/**",
+                "/v3/api-docs/**"
             ).permitAll()
             
             // ALL OTHER ENDPOINTS REQUIRE AUTHENTICATION

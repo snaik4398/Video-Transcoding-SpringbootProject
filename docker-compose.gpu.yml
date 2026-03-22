@@ -1,0 +1,454 @@
+version: '3.8'
+
+# Dual-GPU Video Transcoding - Docker Compose
+# 
+# This setup leverages BOTH GPUs in the system:
+#   GPU 0 - Intel Iris Xe Graphics (QSV / Quick Sync Video)
+#   GPU 1 - NVIDIA GeForce MX450  (NVENC / NVDEC via CUDA)
+#
+# Prerequisites:
+#   1. NVIDIA GPU drivers + NVIDIA Container Toolkit:
+#      - Windows: Docker Desktop with WSL2 + NVIDIA GPU support
+#      - Linux:   sudo apt install nvidia-container-toolkit && sudo systemctl restart docker
+#   2. Intel GPU: /dev/dri/renderD128 must be accessible (automatic on most Linux/WSL2)
+#   3. Verify NVIDIA: docker run --rm --gpus all nvidia/cuda:12.3.1-base-ubuntu22.04 nvidia-smi
+#   4. Verify Intel:  ls -la /dev/dri/renderD128
+#
+# Usage:
+#   docker-compose -f docker-compose.gpu.yml up --build
+#
+# Architecture:
+#   - transcoding-nvidia-worker: NVIDIA MX450 (NVENC h264_nvenc/hevc_nvenc)
+#   - transcoding-intel-worker:  Intel Iris Xe (QSV h264_qsv/hevc_qsv)
+#   - transcoding-cpu-worker:    CPU fallback  (libx264/libx265)
+#
+#   All 3 workers share the same Kafka consumer group "transcode-service-group",
+#   so Kafka automatically distributes jobs across them via partition assignment.
+
+services:
+
+  # ============================================================
+  # INFRASTRUCTURE (same as base docker-compose.yml)
+  # ============================================================
+
+  postgres:
+    image: postgres:15
+    container_name: transcode-postgres
+    environment:
+      POSTGRES_DB: transcode_db
+      POSTGRES_USER: transcode_user
+      POSTGRES_PASSWORD: secure_password_123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U transcode_user -d transcode_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - transcode-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: transcode-redis
+    command: redis-server --requirepass redis_password_123 --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis_password_123", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - transcode-network
+    restart: unless-stopped
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: transcode-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - transcode-network
+    restart: unless-stopped
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: transcode-kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_NUM_PARTITIONS: 6
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - transcode-network
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: transcode-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - transcode-network
+    restart: unless-stopped
+
+  # ============================================================
+  # APPLICATION SERVICES
+  # ============================================================
+
+  auth-service:
+    build: ./auth-service
+    container_name: transcode-auth-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: transcode_db
+      POSTGRES_USER: transcode_user
+      POSTGRES_PASSWORD: secure_password_123
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis_password_123
+      JWT_SECRET: your-super-secret-jwt-key-change-this-in-production
+      JWT_EXPIRATION: 86400000
+      LOG_LEVEL: INFO
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./logs/auth:/var/log
+    networks:
+      - transcode-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  file-service:
+    build: ./file-service
+    container_name: transcode-file-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: transcode_db
+      POSTGRES_USER: transcode_user
+      POSTGRES_PASSWORD: secure_password_123
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      MINIO_BUCKET_NAME: video-files
+      JWT_SECRET: your-super-secret-jwt-key-change-this-in-production
+      JWT_EXPIRATION: 86400000
+      LOG_LEVEL: INFO
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./logs/file:/var/log
+      - ./temp:/tmp/uploads
+    networks:
+      - transcode-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  notification-service:
+    build: ./notification-service
+    container_name: transcode-notification-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: transcode_db
+      POSTGRES_USER: transcode_user
+      POSTGRES_PASSWORD: secure_password_123
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis_password_123
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      JWT_SECRET: your-super-secret-jwt-key-change-this-in-production
+      JWT_EXPIRATION: 86400000
+      LOG_LEVEL: INFO
+    ports:
+      - "8084:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./logs/notification:/var/log
+    networks:
+      - transcode-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # ============================================================
+  # TRANSCODING WORKERS - Dual GPU + CPU load distribution
+  # ============================================================
+  #
+  # All workers belong to the same Kafka consumer group.
+  # Kafka partitions are distributed across workers automatically.
+  # With 6 partitions and 3 workers, each gets ~2 partitions.
+  #
+  # NVIDIA worker: Uses NVENC/NVDEC (GeForce MX450, 2GB VRAM)
+  # Intel worker:  Uses QSV/Quick Sync (Iris Xe integrated)
+  # CPU worker:    Software fallback (libx264/libx265)
+
+  # --- NVIDIA WORKER (GeForce MX450 - NVENC/NVDEC) ---
+  transcoding-nvidia-worker:
+    build:
+      context: ./transcoding-service
+      dockerfile: Dockerfile.gpu
+    container_name: transcode-nvidia-worker
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: transcode_db
+      POSTGRES_USER: transcode_user
+      POSTGRES_PASSWORD: secure_password_123
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis_password_123
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_GROUP_ID: transcode-service-group
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      MINIO_BUCKET_NAME: video-files
+      MINIO_OUTPUT_BUCKET: transcoded-files
+      FFMPEG_PATH: /usr/bin/ffmpeg
+      FFPROBE_PATH: /usr/bin/ffprobe
+      MAX_CONCURRENT_JOBS: 2
+      TEMP_DIR: /tmp/transcode
+      OUTPUT_DIR: /app/output
+      ENABLE_GPU_ACCELERATION: "true"
+      GPU_TYPE: nvidia
+      CUDA_VISIBLE_DEVICES: "0"
+      JWT_SECRET: your-super-secret-jwt-key-change-this-in-production
+      JWT_EXPIRATION: 86400000
+      LOG_LEVEL: INFO
+      WORKER_ID: nvidia-worker
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./logs/transcode-nvidia:/var/log
+      - ./temp/nvidia:/tmp/transcode
+      - ./output/nvidia:/app/output
+    networks:
+      - transcode-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu, video, compute]
+
+  # --- INTEL WORKER (Iris Xe - QSV / Quick Sync Video) ---
+  transcoding-intel-worker:
+    build:
+      context: ./transcoding-service
+      dockerfile: Dockerfile.intel
+    container_name: transcode-intel-worker
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: transcode_db
+      POSTGRES_USER: transcode_user
+      POSTGRES_PASSWORD: secure_password_123
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis_password_123
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_GROUP_ID: transcode-service-group
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      MINIO_BUCKET_NAME: video-files
+      MINIO_OUTPUT_BUCKET: transcoded-files
+      FFMPEG_PATH: /usr/bin/ffmpeg
+      FFPROBE_PATH: /usr/bin/ffprobe
+      MAX_CONCURRENT_JOBS: 3
+      TEMP_DIR: /tmp/transcode
+      OUTPUT_DIR: /app/output
+      ENABLE_GPU_ACCELERATION: "true"
+      GPU_TYPE: intel
+      RENDER_DEVICE: /dev/dri/renderD128
+      LIBVA_DRIVER_NAME: iHD
+      JWT_SECRET: your-super-secret-jwt-key-change-this-in-production
+      JWT_EXPIRATION: 86400000
+      LOG_LEVEL: INFO
+      WORKER_ID: intel-worker
+    ports:
+      - "8092:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    devices:
+      - /dev/dri:/dev/dri
+    volumes:
+      - ./logs/transcode-intel:/var/log
+      - ./temp/intel:/tmp/transcode
+      - ./output/intel:/app/output
+    networks:
+      - transcode-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  # --- CPU WORKER (software encoding fallback) ---
+  transcoding-cpu-worker:
+    build: ./transcoding-service
+    container_name: transcode-cpu-worker
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: transcode_db
+      POSTGRES_USER: transcode_user
+      POSTGRES_PASSWORD: secure_password_123
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis_password_123
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_GROUP_ID: transcode-service-group
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      MINIO_BUCKET_NAME: video-files
+      MINIO_OUTPUT_BUCKET: transcoded-files
+      FFMPEG_PATH: /usr/bin/ffmpeg
+      FFPROBE_PATH: /usr/bin/ffprobe
+      MAX_CONCURRENT_JOBS: 2
+      TEMP_DIR: /tmp/transcode
+      OUTPUT_DIR: /app/output
+      ENABLE_GPU_ACCELERATION: "false"
+      GPU_TYPE: none
+      JWT_SECRET: your-super-secret-jwt-key-change-this-in-production
+      JWT_EXPIRATION: 86400000
+      LOG_LEVEL: INFO
+      WORKER_ID: cpu-worker
+    ports:
+      - "8093:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./logs/transcode-cpu:/var/log
+      - ./temp/cpu:/tmp/transcode
+      - ./output/cpu:/app/output
+    networks:
+      - transcode-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '4'
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+
+networks:
+  transcode-network:
+    driver: bridge

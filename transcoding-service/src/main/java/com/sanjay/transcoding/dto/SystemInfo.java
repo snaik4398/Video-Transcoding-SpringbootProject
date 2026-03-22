@@ -20,4 +20,8 @@ public class SystemInfo {
     private String ffmpegVersion;
     private String ffprobeVersion;
     private Boolean gpuAccelerationEnabled;
+    private String gpuType;
+    private Long activeJobs;
+    private Integer maxConcurrentJobs;
+    private String workerId;
 }

@@ -1,0 +1,37 @@
+FROM nvidia/cuda:12.3.1-runtime-ubuntu22.04
+
+WORKDIR /app
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,video,utility
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    wget \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN wget -qO- https://download.oracle.com/java/21/latest/jdk-21_linux-x64_bin.tar.gz | tar xz -C /opt \
+    && ln -s /opt/jdk-21* /opt/jdk-21 \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV JAVA_HOME=/opt/jdk-21
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+
+RUN mkdir -p /tmp/transcode /app/output
+
+COPY target/transcoding-service-1.0.0.jar app.jar
+
+EXPOSE 8082
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+    CMD curl -f http://localhost:8082/api/transcode/health || exit 1
+
+ENTRYPOINT ["java", \
+    "-XX:+UseContainerSupport", \
+    "-XX:MaxRAMPercentage=75.0", \
+    "-XX:+ExitOnOutOfMemoryError", \
+    "-Djava.security.egd=file:/dev/./urandom", \
+    "-jar", "app.jar"]

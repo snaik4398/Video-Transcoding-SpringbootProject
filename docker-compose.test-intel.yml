@@ -1,0 +1,246 @@
+version: '3.8'
+
+# Minimal test setup: Intel QSV transcoding only, authentication DISABLED
+#
+# Usage:
+#   1. Build JARs first:  .\build.bat  (or mvn clean package -DskipTests)
+#   2. Start:             docker compose -f docker-compose.test-intel.yml up --build
+#   3. Stop:              docker compose -f docker-compose.test-intel.yml down
+#   4. Stop + wipe data:  docker compose -f docker-compose.test-intel.yml down -v
+#
+# Services running:
+#   - postgres       (5432)  - database
+#   - redis          (6379)  - cache
+#   - zookeeper      (2181)  - kafka dependency
+#   - kafka          (9092)  - message broker
+#   - minio          (9000/9001) - object storage (console at http://localhost:9001)
+#   - file-service   (8083)  - upload videos here (auth OFF)
+#   - transcoding-intel-worker (8082) - Intel QSV transcoding (auth OFF)
+#
+# Test workflow:
+#   1. Upload a video:
+#      curl -X POST http://localhost:8083/api/files/upload \
+#        -F "file=@sample.mp4" -F "userId=test-user"
+#
+#   2. Check system info (GPU detection):
+#      curl http://localhost:8082/api/transcode/system-info
+#
+#   3. Submit a transcoding job:
+#      curl -X POST http://localhost:8082/api/transcode/jobs \
+#        -H "Content-Type: application/json" \
+#        -d '{"inputFileId":"<file-id-from-upload>","outputSettings":{"videoCodec":"libx264","audioCodec":"aac","outputFormat":"mp4","resolution":"1280x720","processingMode":"GPU"}}'
+#
+#   4. Check job status:
+#      curl http://localhost:8082/api/transcode/jobs/<job-id>
+
+services:
+
+  postgres:
+    image: postgres:15
+    container_name: test-intel-postgres
+    environment:
+      POSTGRES_DB: transcode_db
+      POSTGRES_USER: transcode_user
+      POSTGRES_PASSWORD: secure_password_123
+    ports:
+      - "5432:5432"
+    volumes:
+      - test_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U transcode_user -d transcode_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - test-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: test-intel-redis
+    command: redis-server --requirepass redis_password_123 --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - test_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis_password_123", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - test-network
+    restart: unless-stopped
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: test-intel-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - test-network
+    restart: unless-stopped
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: test-intel-kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 3
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - test-network
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: test-intel-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - test_minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - test-network
+    restart: unless-stopped
+
+  # --- FILE SERVICE (auth DISABLED for testing) ---
+  file-service:
+    build: ./file-service
+    container_name: test-intel-file-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: transcode_db
+      POSTGRES_USER: transcode_user
+      POSTGRES_PASSWORD: secure_password_123
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      MINIO_BUCKET_NAME: video-files
+      JWT_SECRET: your-super-secret-jwt-key-change-this-in-production
+      JWT_EXPIRATION: 86400000
+      SECURITY_ENABLED: "false"
+      LOG_LEVEL: DEBUG
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./logs/test-file:/var/log
+      - ./temp/test:/tmp/uploads
+    networks:
+      - test-network
+    restart: unless-stopped
+
+  # --- INTEL QSV TRANSCODING WORKER (auth DISABLED for testing) ---
+  transcoding-intel-worker:
+    build:
+      context: ./transcoding-service
+      dockerfile: Dockerfile.intel
+    container_name: test-intel-transcoder
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: transcode_db
+      POSTGRES_USER: transcode_user
+      POSTGRES_PASSWORD: secure_password_123
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis_password_123
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_GROUP_ID: transcode-service-group
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      MINIO_BUCKET_NAME: video-files
+      MINIO_OUTPUT_BUCKET: transcoded-files
+      FFMPEG_PATH: /usr/bin/ffmpeg
+      FFPROBE_PATH: /usr/bin/ffprobe
+      MAX_CONCURRENT_JOBS: 3
+      TEMP_DIR: /tmp/transcode
+      OUTPUT_DIR: /app/output
+      ENABLE_GPU_ACCELERATION: "true"
+      GPU_TYPE: intel
+      RENDER_DEVICE: /dev/dri/renderD128
+      LIBVA_DRIVER_NAME: iHD
+      SECURITY_ENABLED: "false"
+      JWT_SECRET: your-super-secret-jwt-key-change-this-in-production
+      JWT_EXPIRATION: 86400000
+      LOG_LEVEL: DEBUG
+      WORKER_ID: intel-test-worker
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    devices:
+      - /dev/dri:/dev/dri
+    volumes:
+      - ./logs/test-intel:/var/log
+      - ./temp/test-intel:/tmp/transcode
+      - ./output/test-intel:/app/output
+    networks:
+      - test-network
+    restart: unless-stopped
+
+volumes:
+  test_postgres_data:
+  test_redis_data:
+  test_minio_data:
+
+networks:
+  test-network:
+    driver: bridge
